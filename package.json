@@ -10,7 +10,7 @@
     "dev": "concurrently  \"npm run server\" \"npm run client\" ",
     "seed": "node seeders.js"
   },
-  "author": "Umer  \\",
+  "author": "Haider ali \\",
   "license": "MIT",
   "dependencies": {
     "@fortawesome/react-fontawesome": "^0.2.0",
