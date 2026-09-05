@@ -1,31 +1,19 @@
 {
-  "name": "pos-mern",
-  "version": "1.0.0",
-  "description": "pos mern app",
-  "main": "server.js",
+  "name": "mern-pos-monorepo",
+  "version": "2.4.0",
+  "description": "Hardware Point POS — Enterprise Full-Stack Retail ERP (Clean Architecture)",
+  "private": true,
   "scripts": {
-    "start": "node  server.js",
-    "server": "nodemon server.js",
-    "client": "npm start --prefix client",
-    "dev": "concurrently  \"npm run server\" \"npm run client\" ",
-    "seed": "node seeders.js"
+    "dev": "concurrently --kill-others-on-fail \"npm --prefix server start\" \"npm --prefix client start\"",
+    "server": "npm --prefix server start",
+    "client": "npm --prefix client start",
+    "seed": "npm --prefix server run seed",
+    "build": "npm --prefix client run build",
+    "test": "npm --prefix client test -- --watchAll=false"
   },
-  "author": "Haider ali \\",
-  "license": "MIT",
-  "dependencies": {
-    "@fortawesome/react-fontawesome": "^0.2.0",
-    "bcrypt": "^5.1.1",
-    "body-parser": "^1.20.2",
-    "colors": "^1.4.0",
-    "concurrently": "^8.2.2",
-    "cors": "^2.8.5",
-    "date-fns": "^3.6.0",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.3",
-    "morgan": "^1.10.0",
-    "nodemailer": "^6.9.13",
-    "nodemon": "^3.0.2"
-  }
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "author": "Haider Ali",
+  "license": "SEE LICENSE IN LICENSE"
 }
