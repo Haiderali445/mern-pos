@@ -2,20 +2,21 @@
 
 # 🛒 Hardware Point POS — Enterprise MERN Retail ERP
 
-### Production-Ready, Decoupled Point of Sale with Clean Architecture & Domain-Driven Layering
+### Production-Ready, Decoupled Point of Sale with Clean Architecture, Domain-Driven Layering & Offline IndexedDB Resiliency
 
 <p>
   <img src="https://img.shields.io/badge/React-18.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
-  <img src="https://img.shields.io/badge/Node.js-18.x-339933?style=for-the-badge&logo=node.js&logoColor=white" />
-  <img src="https://img.shields.io/badge/Express-4.18.2-000000?style=for-the-badge&logo=express&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vite-8.2.0-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-18.x%20%7C%2020.x-339933?style=for-the-badge&logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Express-5.2.1-000000?style=for-the-badge&logo=express&logoColor=white" />
   <img src="https://img.shields.io/badge/MongoDB-Atlas%208.x-47A248?style=for-the-badge&logo=mongodb&logoColor=white" />
-  <img src="https://img.shields.io/badge/TanStack%20Query-v5.x-FF4154?style=for-the-badge&logo=reactquery&logoColor=white" />
-  <img src="https://img.shields.io/badge/Redux-5.0.1-764ABC?style=for-the-badge&logo=redux&logoColor=white" />
+  <img src="https://img.shields.io/badge/Mongoose-8.24.4-880000?style=for-the-badge&logo=mongoose&logoColor=white" />
+  <img src="https://img.shields.io/badge/Dexie.js-4.4.0-379392?style=for-the-badge&logo=dexie&logoColor=white" />
   <img src="https://img.shields.io/badge/Ant%20Design-5.12.6-0170FE?style=for-the-badge&logo=ant-design&logoColor=white" />
   <img src="https://img.shields.io/badge/License-Permission--Required-red?style=for-the-badge" />
 </p>
 
-**A full-stack Point of Sale and Inventory Management System engineered for retail hardware shops, electrical distributors, and multi-counter merchants. Built with Clean Architecture, Domain-Driven Design (DDD), reactive cache invalidation, hardware barcode scanner support, and 80mm thermal receipt printing.**
+**A production-grade Point of Sale and Inventory Management System engineered for retail hardware shops, sanitary merchants, and electrical distributors. Features Clean Architecture, Domain-Driven Design (DDD), Dexie.js offline-first local checkout, reactive cache invalidation, hardware barcode scanner support, and 80mm thermal receipt printing.**
 
 [Architecture & Design Patterns](#-architecture--software-design-patterns) • [Mermaid Visual Models](#-mermaid-visual-models) • [Folder Structure](#-complete-folder-structure) • [Database Design](#-database-design) • [API Reference](#-api-reference) • [Getting Started](#-getting-started) • [Contributing](#-contributing) • [License](#-license)
 
@@ -32,7 +33,8 @@
 
 | Version | Status | Key Highlights |
 |:---:|:---:|---|
-| **`v2.4.0`** | **Production (Current)** | • **4-Tier Frontend Clean Architecture**: Services, Handlers, Calculators, Presentation.<br>• **Domain-Driven Backend**: Domain Contracts, Infrastructure Repositories, Application Services.<br>• **Zero-Refresh Real-Time Sync**: TanStack Query auto-invalidation on POS mutations.<br>• **Centralized Error Interception**: Global Ant Design notification utility.<br>• **Thermal Printing Isolation**: Scoped 80mm roll printer CSS styling.<br>• **Hardware Scanner Integration**: Keystroke receptor with `F2` focus and `F4` checkout shortcuts. |
+| **`v2.5.0`** | **Production (Current)** | • **Offline-First Resilience**: Dexie.js 4.4 IndexedDB client database with auto-reconciling background sync.<br>• **Design System Modernization**: Ant Design 5 `<ConfigProvider>` tokens, high-contrast vibrant badges, top-level reactive progress bar.<br>• **Backend Modernization**: Express 5.2.1, Mongoose 8.24, Jose JWT signing, Unit of Work transactional checkout, and EventEmitter pub/sub.<br>• **Hardware Scanner & Thermal Engine**: 80mm ESC/POS roll printing, `F2` barcode focus, and `F4` payment hotkeys.<br>• **Monorepo DX**: Unified root scripts for concurrent client/server dev and database seeding. |
+| **`v2.4.0`** | Superseded | 4-Tier Frontend Clean Architecture and Domain-Driven Backend split. |
 | **`v2.0.0`** | Superseded | Introduction of JWT Bearer Authentication, Admin User Management panel, and PrivateRoute guards. |
 | **`v1.0.0`** | Deprecated | Legacy prototype with monolithic controllers, plain-text credentials, and manual page refreshes. |
 
@@ -40,44 +42,40 @@
 
 ## 🏛️ Architecture & Software Design Patterns
 
-Hardware Point POS strictly decouples responsibilities across both client and server according to industry-standard patterns:
+Hardware Point POS decouples responsibilities across both client and server according to industry-standard patterns:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                            CLIENT SPA (REACT 18)                                 │
+│                            CLIENT SPA (REACT 18 & VITE)                          │
 │  ┌────────────────────────────────────────────────────────────────────────────┐  │
-│  │ Tier 1: Presentation Layer (Ant Design UI, Layout Shell, Responsive Views) │  │
+│  │ Tier 1: Presentation Layer (Ant Design 5 UI, High-Contrast Badges, Layout) │  │
 │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
 │                                         │ delegates actions & calculations       │
 │  ┌──────────────────────────────────────┴─────────────────────────────────────┐  │
-│  │ Tier 2: Action Handlers (src/handlers/) & Error Interception               │  │
+│  │ Tier 2: Action Handlers (src/handlers/) & Centralized Error Interception   │  │
 │  │ Tier 3: Pure Calculators (src/calculaters/ - Math, COGS, Margins, Formats) │  │
 │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
-│                                         │ fetches / mutates                      │
+│                                         │ fetches / mutates / syncs              │
 │  ┌──────────────────────────────────────┴─────────────────────────────────────┐  │
-│  │ Tier 4: Service Layer (src/services/) + TanStack Query + Redux Cart Store  │  │
+│  │ Tier 4: Service Layer + Dexie 4 IndexedDB Store + TanStack Query Cache     │  │
 │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
 └─────────────────────────────────────────┼────────────────────────────────────────┘
-                                          │ HTTP / REST (JWT Bearer Auth)
+                                          │ HTTP / REST (Jose JWT Bearer Auth)
 ┌─────────────────────────────────────────▼────────────────────────────────────────┐
-│                        BACKEND SERVER (NODE.JS & EXPRESS)                        │
+│                        BACKEND SERVER (EXPRESS 5 & MONGOOSE 8)                   │
 │  ┌────────────────────────────────────────────────────────────────────────────┐  │
-│  │ Presentation Layer: Express Routers, Controllers, Auth Middleware          │  │
+│  │ Presentation Layer: Modular Controllers, Express 5 Routers, Auth Guards    │  │
 │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
-│                                         │ calls use cases                        │
+│                                         │ calls domain services                  │
 │  ┌──────────────────────────────────────┴─────────────────────────────────────┐  │
-│  │ Application Layer: AuthService & Domain Use Cases                          │  │
+│  │ Application & Domain: Unit of Work, EventEmitter Pub/Sub, Strategy Pattern │  │
 │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
-│                                         │ implements contracts                   │
+│                                         │ implements repository contracts        │
 │  ┌──────────────────────────────────────┴─────────────────────────────────────┐  │
-│  │ Domain Layer: Repository Contracts & Entity Interfaces (DIP)              │  │
-│  └──────────────────────────────────────┬─────────────────────────────────────┘  │
-│                                         │ concrete persistence                   │
-│  ┌──────────────────────────────────────┴─────────────────────────────────────┐  │
-│  │ Infrastructure Layer: Mongoose Repositories, Jose Token Signer, DNS Pool   │  │
+│  │ Infrastructure: Mongoose Repositories, Soft Delete Plugin, Jose Signer     │  │
 │  └──────────────────────────────────────┬─────────────────────────────────────┘  │
 └─────────────────────────────────────────┼────────────────────────────────────────┘
-                                          │ TCP / SRV Pool (8.8.8.8 Fallback)
+                                          │ TLS / Replica Set Connection Pool
                                ┌──────────▼──────────┐
                                │    MONGODB ATLAS    │
                                │  Primary & Replicas │
@@ -86,22 +84,17 @@ Hardware Point POS strictly decouples responsibilities across both client and se
 
 ### Key Architectural Patterns Implemented
 
-1. **Domain-Driven Design (DDD) & Hexagonal Architecture (Server)**:
-   - Business entities and repository contracts (`src/domain/`) are decoupled from Mongoose schemas.
-   - Concrete implementations live in `src/infrastructure/repositories/MongooseUserRepository.js`.
-   - The application service (`src/application/services/AuthService.js`) depends only on abstractions.
-2. **Dependency Inversion Principle (DIP)**:
-   - High-level business logic is decoupled from database drivers. Swapping MongoDB for PostgreSQL requires only implementing the repository contract without touching application services.
-3. **Facade Pattern (Client Services)**:
-   - Components and hooks interact with dedicated service modules (`productService.js`, `billService.js`, etc.) that abstract away network details, serialization, and Axios configurations.
-4. **Strategy Pattern (Pure Calculators)**:
-   - Financial algorithms (gross revenue, COGS, net margins, category valuations, tax, tender change) are isolated into pure functions inside `src/calculaters/`. They have zero side effects and are 100% testable.
-5. **Chain of Responsibility / Interceptor Pattern**:
-   - Outgoing Axios requests automatically inject the JWT Bearer token.
-   - Centralized error utility (`src/utils/errorHandler.js`) intercepts failures, parses error payloads, and triggers uniform Ant Design notifications.
-6. **CQRS-Lite State Synchronization**:
-   - **Command / Local State**: Active cart operations (`ADD_TO_CART`, `UPDATE_CART`, `DELETE_FROM_CART`) are processed synchronously via Redux and hydrated from `localStorage`.
-   - **Query / Server State**: Products, bills, analytics, dealers, and users are managed by TanStack React Query with automated cache invalidation upon mutations.
+1. **Offline-First & Eventual Consistency**:
+   - The client embeds a complete local IndexedDB database powered by **Dexie.js 4.4**. Cashiers can process sales even during internet outages; transactions queue locally and reconcile via `syncEngine.js` once connection returns.
+2. **Transactional Unit of Work (ACID Guarantee)**:
+   - On the backend, stock decrements and invoice creations are executed inside an atomic `unitOfWork.js` transaction. If an item stock check fails, the entire transaction is aborted.
+3. **Pluggable Strategy Patterns**:
+   - **Receipt Strategies**: Pluggable formatting for thermal 80mm roll receipts vs. standard A4 tax invoices (`strategies/receipts/`).
+   - **Tax Strategies**: Zero-rated, flat percentage, and VAT tax calculation engines (`strategies/tax/`).
+4. **Domain Pub/Sub Event Bus**:
+   - `AppEvents` (built on Node.js `EventEmitter`) decouples core checkout from secondary concerns like low-stock alerts, audit logging, and webhook broadcasts.
+5. **Pure Mathematical Calculators**:
+   - Financial algorithms (gross revenue, COGS, net margins, category valuations, tax, tender change) are isolated into pure functions inside `client/src/calculaters/`. They have zero side effects and are 100% testable.
 
 ---
 
@@ -111,7 +104,7 @@ Hardware Point POS strictly decouples responsibilities across both client and se
 
 ```mermaid
 graph TB
-    subgraph Users["Store Terminals & Users"]
+    subgraph Terminals["Store Cashier Terminals & Hardware"]
         Desktop["🖥️ POS Cashier Terminal (Chrome Desktop)"]
         Tablet["📱 Manager Tablet (Safari / Chrome Mobile)"]
         Scanner["🔫 USB / Bluetooth Hardware Barcode Scanner"]
@@ -120,139 +113,88 @@ graph TB
         Desktop -.->|Window Print Driver| Printer
     end
 
-    subgraph ClientApp["Frontend Client (Port 3000)"]
+    subgraph ClientApp["Frontend Client (Port 3000 / Vite)"]
         ReactRouter["React Router v6 Navigation"]
-        ReduxCart["Redux Cart Engine\n(LocalStorage Hydrated)"]
-        ReactQuery["TanStack React Query Cache\n(Invalidation Orchestrator)"]
-        Services["Domain Services Layer\n(item · bill · dealer · charge · user)"]
-        Axios["Centralized Axios Client\n(JWT Bearer Interceptor)"]
+        DexieDB["Dexie.js 4.4 IndexedDB Store\n(Offline Fallback & Local Queue)"]
+        SyncEngine["Background Sync Engine\n(Auto-Reconciles Pending Invoices)"]
+        ReactQuery["TanStack React Query Cache\n(Reactive Invalidation)"]
+        Services["Domain Services Layer\n(product · bill · dealer · charge · user)"]
+        Axios["Centralized Axios Client\n(Jose JWT Bearer Interceptor)"]
         
         Desktop --> ReactRouter
         Tablet --> ReactRouter
-        ReactRouter --> ReduxCart
+        ReactRouter --> DexieDB
+        DexieDB --> SyncEngine
         ReactRouter --> ReactQuery
         ReactQuery --> Services
         Services --> Axios
+        SyncEngine --> Axios
     end
 
-    subgraph BackendApp["Backend Server (Port 8080)"]
-        ExpressRouter["Express REST API Router"]
-        SecurityMid["JWT authMiddleware\n(Bearer Token & RBAC Guard)"]
-        Controllers["Presentation Controllers"]
-        AppServices["Application Services (AuthService)"]
-        RepoContracts["Domain Repository Contracts"]
-        MongoRepos["Mongoose Concrete Repositories"]
-        DNSResolver["DNS SRV Fallback Resolver\n(Google 8.8.8.8 / Cloudflare 1.1.1.1)"]
+    subgraph BackendApp["Backend Server (Port 8080 / Express 5)"]
+        ExpressApp["Express 5 REST API Router"]
+        AuthMid["Jose JWT authMiddleware\n(Bearer Token & RBAC Guard)"]
+        Controllers["Domain Feature Controllers"]
+        UOW["Transactional Unit of Work\n(ACID MongoDB Sessions)"]
+        EventBus["EventEmitter Domain Event Bus\n(Pub/Sub Notifications)"]
+        MongoModels["Mongoose 8 Schemas & Soft-Delete"]
 
-        Axios -->|HTTP / JSON| ExpressRouter
-        ExpressRouter --> SecurityMid
-        SecurityMid --> Controllers
-        Controllers --> AppServices
-        AppServices --> RepoContracts
-        RepoContracts --> MongoRepos
-        MongoRepos --> DNSResolver
+        Axios -->|HTTP / JSON| ExpressApp
+        ExpressApp --> AuthMid
+        AuthMid --> Controllers
+        Controllers --> UOW
+        UOW --> MongoModels
+        Controllers --> EventBus
     end
 
     subgraph DatabaseCluster["MongoDB Atlas Cloud"]
         MongoCluster[("MongoDB Replica Set\npos-mern Database\nitems · bills · dealers · charges · users")]
-        DNSResolver -->|TLS Encrypted Mongoose Pool| MongoCluster
+        MongoModels -->|TLS Encrypted Connection Pool| MongoCluster
     end
 ```
 
 ---
 
-### 2. POS Transaction & Cache Invalidation Lifecycle
+### 2. POS Transaction & Offline Fallback Sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Cashier as Operator / Cashier
-    participant POS as POS Page (Client)
-    participant Redux as Redux Cart Store
-    participant Handler as cartHandlers.js
+    actor Cashier
+    participant POS as POS Client
     participant Service as billService.js
-    participant API as Express /api/bill/add-bill
+    participant Dexie as posDatabase.js (IndexedDB)
+    participant API as Server /api/bill/add-bill
     participant DB as MongoDB Atlas
-    participant RQ as React Query Cache
 
-    Cashier->>POS: Scans Item Barcode or Clicks Product
-    POS->>Redux: dispatch(ADD_TO_CART, product)
-    Redux-->>POS: Cart Updated & Persisted to localStorage
-    Cashier->>POS: Presses F4 / Clicks "Proceed to Pay"
-    POS->>POS: Modal Opens (Computes Subtotal, Tax, Change Due)
-    Cashier->>POS: Selects Payment (Cash/Card/Borrow) & Submits
-    POS->>Handler: handleCheckoutSubmission()
-    Handler->>Service: billService.createBill(payload)
-    Service->>API: POST /api/bill/add-bill (with Bearer Token)
-    API->>DB: Save Bill & Decrement Item Stock Quantities
-    DB-->>API: Saved Bill Document
-    API-->>Service: 200 OK (Bill & Updated Stock Snapshot)
-    Service-->>Handler: Bill Response
-    Handler->>Redux: dispatch(CLEAR_CART)
-    Handler->>POS: Trigger Confetti & Success Notification
-    Handler->>RQ: invalidateQueries(["products", "bills", "stockAnalytics"])
-    par Reactive Cache Refetching
-        RQ->>API: GET /api/items/get-item
-        API->>DB: Fetch Updated Stock
-        DB-->>API: Items Array
-        API-->>RQ: Updated Cache
-    and
-        RQ->>API: GET /api/bill/get-bill
-        API->>DB: Fetch Invoices
-        DB-->>API: Bills Array
-        API-->>RQ: Updated Cache
+    Cashier->>POS: Adds items & presses F4 (Proceed to Pay)
+    POS->>Service: createBill(billPayload)
+    alt Terminal is Online
+        Service->>API: POST /api/bill/add-bill
+        API->>DB: Atomic Unit of Work (Decrement Stock + Save Bill)
+        DB-->>API: Saved Bill
+        API-->>Service: 201 Created
+        Service->>Dexie: Update local product stock
+        Service-->>POS: Show Confetti & Print Receipt
+    else Network Lost (Offline Mode)
+        Service->>Dexie: posDb.saveOfflineBill(billPayload)
+        Dexie->>Dexie: Store bill in offline_bills queue
+        Dexie->>Dexie: Decrement local stock in products table
+        Dexie-->>Service: Offline invoice snapshot
+        Service-->>POS: Show Confetti & Print Receipt (Zero Downtime!)
+        Note over POS: Live Badge switches to Amber "Sync Pending"
     end
-    RQ-->>POS: Real-time Stock Badges, Reorder Alerts & KPI Charts Re-render
 ```
 
 ---
 
-### 3. POS Active Transaction State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle: Terminal Loaded
-    Idle --> Scanning: Barcode Scanner Input Detected
-    Idle --> Browsing: Filter Category or Search Query
-    Browsing --> CartActive: Add Item to Cart
-    Scanning --> CartActive: Barcode Matched & Stock Available
-    Scanning --> Idle: Invalid Barcode (Show Error Toast)
-    CartActive --> CartActive: Increment / Decrement Quantity
-    CartActive --> Idle: Clear Entire Basket
-    CartActive --> TenderModal: F4 Pressed or Click "Proceed to Pay"
-    
-    state TenderModal {
-        [*] --> SelectingPayment
-        SelectingPayment --> CashPayment: Select "Cash"
-        SelectingPayment --> CardPayment: Select "Card"
-        SelectingPayment --> CreditPayment: Select "Borrow / Credit"
-        CashPayment --> ValidatingTender: Enter Received Cash
-        CardPayment --> ValidatingTender: Swipe / Enter Ref
-        CreditPayment --> ValidatingTender: Customer Details Entered
-        ValidatingTender --> PaymentReady: Tender >= Total or Credit Allowed
-        ValidatingTender --> PaymentInsufficient: Tender < Total
-        PaymentInsufficient --> ValidatingTender: Update Amount
-    }
-
-    TenderModal --> CartActive: Cancel / Press Esc
-    TenderModal --> CommittingSale: Confirm Transaction
-    CommittingSale --> TransactionSuccess: 200 OK Received from Server
-    CommittingSale --> TransactionFailed: API Error (Stock Depleted)
-    TransactionFailed --> TenderModal: Display Error Alert
-    TransactionSuccess --> ReceiptPreview: Open Thermal Printable Modal
-    ReceiptPreview --> Printing: Trigger ESC/POS Print
-    Printing --> Idle: Transaction Closed & Cart Cleared
-```
-
----
-
-### 4. Multi-Role RBAC Authorization Flow
+### 3. Multi-Role RBAC Authorization Flow
 
 ```mermaid
 flowchart TD
     A["👤 User Access Request"] --> B{"Has Valid JWT Token\nin localStorage.auth?"}
     B -->|"❌ No"| C["Redirect to /login"]
-    B -->|"✅ Yes"| D["Decode JWT & Inspect User Role"]
+    B -->|"✅ Yes"| D["Decode Jose JWT & Inspect Role"]
     D --> E{"Role == 'admin'?"}
     E -->|"✅ Yes"| F["Grant Full Access\nPOS · Invoices · Catalog · Stock BI · Dealers · Charges · User Management"]
     E -->|"❌ No (Cashier)"| G{"Requested Route Protected\nfor Admin Only?"}
@@ -278,10 +220,10 @@ erDiagram
         ObjectId _id PK "Unique user identifier"
         String name "Full staff name (e.g. Haider Ali)"
         String userId UK "Login identifier (e.g. admin, 1001)"
-        String password "Cryptographically hashed / secured"
-        String role "System role: admin or cashier"
+        String password "Cryptographically hashed via Bcrypt"
+        String role "admin, manager, or cashier"
         Boolean active "Status flag (true = active, false = suspended)"
-        Boolean verified "Account verification state"
+        Boolean isDeleted "Soft delete flag"
         Date createdAt "Timestamp"
         Date updatedAt "Timestamp"
     }
@@ -296,7 +238,8 @@ erDiagram
         String category "Classification (Shower, Pipe, Tools, etc.)"
         String barcode "EAN-13 / UPC barcode string"
         String sku "Internal SKU reference code"
-        String image "Remote image asset URL"
+        String image "Product thumbnail URL"
+        Boolean isDeleted "Soft delete flag"
         Date createdAt "Timestamp"
         Date updatedAt "Timestamp"
     }
@@ -308,8 +251,9 @@ erDiagram
         Number totalAmount "Gross invoice payable (PKR)"
         Number paidAmount "Cash amount received (PKR)"
         String paymentMethod "cash, card, or borrow"
-        Array cartItems "Embedded snapshot array of line items"
-        Date date "Sale completion timestamp"
+        Array cartItems "Snapshot of purchased line items"
+        Date date "Sale timestamp"
+        Boolean isVoided "Voided transaction flag"
         Date createdAt "Timestamp"
         Date updatedAt "Timestamp"
     }
@@ -320,13 +264,12 @@ erDiagram
         Number salePrice "Unit sale price at sale time"
         Number purchasePrice "Unit cost price at sale time"
         Number quantity "Units purchased"
-        String image "Product thumbnail URL"
     }
 
     DEALERS {
         ObjectId _id PK "Vendor record identifier"
-        String dealerName "Wholesale company / vendor name"
-        String contactName "Representative contact phone/name"
+        String dealerName "Wholesale company name"
+        String contactName "Vendor representative"
         String shopName "Shop branch or warehouse name"
         String address "Physical address"
         String products "Supplied product lines"
@@ -336,9 +279,9 @@ erDiagram
 
     CHARGES {
         ObjectId _id PK "Expense entry identifier"
-        String description "Expense purpose (Electricity, Rent, Wages)"
+        String description "Expense purpose (Electricity, Wages, Rent)"
         Number amount "Expense amount (PKR)"
-        Date date "Expense occurrence timestamp"
+        Date date "Expense timestamp"
         Date createdAt "Timestamp"
         Date updatedAt "Timestamp"
     }
@@ -351,104 +294,52 @@ erDiagram
 ```
 📂 mern-pos/                                      # Monorepo Workspace Root
 ├── 📄 .env.example                               # Global environment template
-├── 📄 CONTRIBUTING.md                            # Comprehensive contributor guidelines
+├── 📄 CONTRIBUTING.md                            # Contributor guidelines
 ├── 📄 LICENSE                                    # Custom Permission-Based License
-├── 📄 package.json                               # Concurrently orchestrator scripts
+├── 📄 package.json                               # Monorepo scripts (dev:server, dev:client, seed)
 ├── 📄 README.md                                  # Root architectural blueprint
 │
-├── 📁 server/                                    # Express & Node.js Backend
+├── 📁 server/                                    # Express 5 & Mongoose 8 Backend
 │   ├── 📄 .env.example                           # Server environment blueprint
-│   ├── 📄 package.json                           # Backend dependencies & scripts
-│   ├── 📄 server.js                              # Express HTTP Server entry point (:8080)
-│   ├── 📄 seeders.js                             # Seed master admin & sample cashier
-│   ├── 📁 config/
-│   │   └── 📄 config.js                          # Mongoose connection with DNS fallbacks
-│   └── 📁 src/                                   # Domain-Driven Clean Architecture
-│       ├── 📁 domain/
-│       │   └── 📁 repositories/
-│       │       └── 📄 RepositoryContracts.js     # Abstract UserRepository contract
-│       ├── 📁 application/
-│       │   └── 📁 services/
-│       │       └── 📄 AuthService.js             # Auth, status toggle, role use cases
-│       ├── 📁 infrastructure/
-│       │   ├── 📁 repositories/
-│       │   │   └── 📄 MongooseUserRepository.js  # Concrete Mongoose implementation
-│       │   └── 📁 security/
-│       │       └── 📄 JoseTokenSigner.js         # JWT signing and verification engine
-│       └── 📁 presentation/
-│           ├── 📁 controllers/
-│           │   ├── 📄 userController.js          # Admin & login HTTP handlers
-│           │   ├── 📄 itemController.js          # Product catalog HTTP handlers
-│           │   ├── 📄 billController.js          # Billing & stock decrement handlers
-│           │   ├── 📄 dealerController.js        # Supplier directory HTTP handlers
-│           │   └── 📄 chargesController.js       # Expense tracking HTTP handlers
-│           ├── 📁 middleware/
-│           │   └── 📄 authMiddleware.js          # verifyToken & requireRole guards
-│           └── 📁 routes/
-│               ├── 📄 userRoutes.js              # /api/users routes
-│               ├── 📄 itemRoutes.js              # /api/items routes
-│               ├── 📄 billRoutes.js              # /api/bill routes
-│               ├── 📄 dealerRoutes.js            # /api/dealers routes
-│               └── 📄 chargesRoutes.js           # /api/charges routes
+│   ├── 📄 package.json                           # Dependencies & scripts
+│   ├── 📄 app.js                                 # Express 5 application factory
+│   ├── 📄 server.js                              # HTTP server lifecycle & DNS resolver
+│   ├── 📄 seeders.js                             # Multi-tenant catalog & user seeder
+│   └── 📁 src/                                   # Clean Modular Architecture
+│       ├── 📁 core/                              # Cross-cutting concerns
+│       │   ├── 📁 database/                      # connection.js, tenantManager.js, unitOfWork.js
+│       │   ├── 📁 errors/                        # AppError.js & centralized errorHandler.js
+│       │   ├── 📁 events/                        # eventEmitter.js & eventTypes.js pub/sub
+│       │   ├── 📁 middlewares/                   # authenticate.js, requirePermission.js
+│       │   ├── 📁 models/                        # Item.js, Bill.js, Dealer.js, Charge.js, User.js
+│       │   └── 📁 security/                      # JoseTokenSigner.js
+│       ├── 📁 modules/                           # Feature modules
+│       │   ├── 📁 auth/                          # auth.controller.js, auth.routes.js, auth.service.js
+│       │   ├── 📁 billing/                       # billing.controller.js, billing.routes.js, billing.service.js
+│       │   ├── 📁 inventory/                     # inventory.controller.js, inventory.routes.js
+│       │   ├── 📁 expenses/                      # charges & dealers controllers, routes, services
+│       │   └── 📁 tenant-admin/                  # tenant & user management controllers, routes
+│       └── 📁 strategies/                        # Strategy patterns (receipts/ & tax/)
 │
-└── 📁 client/                                    # React 18 & Ant Design Frontend
+└── 📁 client/                                    # React 18 & Vite Frontend
     ├── 📄 .env.example                           # Frontend environment blueprint
-    ├── 📄 package.json                           # CRA dependencies, scripts & proxy
+    ├── 📄 package.json                           # Vite 8, React 18, AntD 5, Dexie 4 dependencies
+    ├── 📄 vite.config.js                         # Vite build & proxy configuration
     ├── 📄 README.md                              # Dedicated frontend architecture docs
-    ├── 📁 public/
-    │   └── 📄 index.html                         # HTML template shell
     └── 📁 src/                                   # 4-Tier Clean Frontend Architecture
-        ├── 📄 index.js                           # App root, React Query, RAF ResizeObserver
-        ├── 📄 index.css                          # Global typography & print overrides
-        ├── 📄 App.js                             # React Router v6 & PrivateRoute guards
-        ├── 📁 api/
-        │   └── 📄 client.js                      # Axios instance with Bearer interceptor
-        ├── 📁 services/                          # Tier 4: Remote API Service Modules
-        │   ├── 📄 productService.js              # Item API abstraction
-        │   ├── 📄 billService.js                 # Invoice & Checkout API abstraction
-        │   ├── 📄 dealerService.js               # Vendor API abstraction
-        │   ├── 📄 chargeService.js               # Expense API abstraction
-        │   ├── 📄 userService.js                 # User & RBAC API abstraction
-        │   └── 📄 index.js                       # Barrel export for services
-        ├── 📁 handlers/                          # Tier 2: Action & Event Handlers
-        │   ├── 📄 posHandlers.js                 # Add to cart & barcode scan orchestration
-        │   ├── 📄 billsHandlers.js               # Bill CRUD & modal submission handlers
-        │   ├── 📄 cartHandlers.js                # Checkout mutation & confetti handlers
-        │   ├── 📄 itemHandlers.js                # Product CRUD & validation handlers
-        │   └── 📄 stockHandlers.js               # Stock analytics event handlers
-        ├── 📁 calculaters/                       # Tier 3: Pure Mathematical Calculators
-        │   ├── 📄 billCalculations.js            # Revenue aggregations & date formatters
-        │   ├── 📄 stockCalculations.js           # Valuation, COGS, profits, margins
-        │   ├── 📄 cartCalculations.js            # Cart subtotals, line totals, change due
-        │   ├── 📄 itemCalculations.js            # Unit stats, categories index, badges
-        │   └── 📄 posCalculations.js             # Catalog search algorithms & barcode match
-        ├── 📁 hooks/                             # Custom React Hooks
-        │   ├── 📄 usePosQueries.js               # Centralized TanStack Query cache hooks
-        │   ├── 📄 useBarcodeScanner.js           # Hardware scanner keystroke listener
-        │   └── 📄 usePosShortcuts.js             # F2, F4, Esc, Ctrl+K keyboard bindings
-        ├── 📁 redux/                             # Local UI State Management
-        │   ├── 📄 store.js                       # Redux store with thunk middleware
-        │   └── 📄 rootReducer.js                 # Persistent cart reducer & boundary checks
-        ├── 📁 pages/                             # Tier 1: Pure Presentation Components
-        │   ├── 📄 Homepage.js                    # POS active retail terminal
-        │   ├── 📄 Cartpage.js                    # Cart review & modal payment terminal
-        │   ├── 📄 Billspage.js                   # Invoices log & 80mm printable receipt
-        │   ├── 📄 Itempage.js                    # Inventory catalog directory & CRUD
-        │   ├── 📄 Stockpage.js                   # Financial analytics & Recharts dashboard
-        │   ├── 📄 UserManagement.js              # Admin operator RBAC management panel
-        │   ├── 📄 Dealerspage.js                 # Wholesale supplier directory
-        │   ├── 📄 Charges.js                     # Operational store expenses log
-        │   ├── 📄 LoginForm.js                   # Operator login authentication
-        │   └── 📄 ChangePasswordForm.js          # Operator credential reset
-        ├── 📁 components/                        # Shared UI Components
-        │   ├── 📄 Defaultlayouts.js              # App shell, responsive sider & mobile drawer
-        │   ├── 📄 PrivateRoute.js                # Role-based route authorization guard
-        │   └── 📄 ItemsList.js                   # Legacy product card component
-        ├── 📁 styles/                            # CSS Stylesheets
-        │   ├── 📄 Pos.css                        # POS grid, product cards & cart dock styles
-        │   └── 📄 Defaultlayouts.css             # Theme variables & responsive breakpoints
-        └── 📁 utils/                             # Shared Utilities
-            └── 📄 errorHandler.js                # Centralized Ant Design toast interceptor
+        ├── 📄 App.jsx                            # ConfigProvider theme tokens & routes
+        ├── 📄 index.jsx                          # Root render, TanStack QueryClientProvider
+        ├── 📄 index.css                          # Modern typography reset & print rules
+        ├── 📁 api/                               # Axios HTTP client with Bearer token interceptor
+        ├── 📁 db/                                # Dexie.js 4.4 IndexedDB database (posDatabase.js)
+        ├── 📁 services/                          # productService.js, billService.js, syncEngine.js
+        ├── 📁 handlers/                          # posHandlers.js, billsHandlers.js, cartHandlers.js
+        ├── 📁 calculaters/                       # Pure math: stockCalculations.js, billCalculations.js
+        ├── 📁 hooks/                             # usePosQueries.js, useBarcodeScanner.js, usePosShortcuts.js
+        ├── 📁 redux/                             # Redux store & persistent cart slice
+        ├── 📁 pages/                             # Homepage, Cartpage, Billspage, Itempage, Stockpage, Users
+        ├── 📁 components/                        # Defaultlayouts.jsx, PrivateRoute.jsx, ItemsList.jsx
+        └── 📁 styles/                            # Pos.css, Defaultlayouts.css
 ```
 
 ---
@@ -459,96 +350,62 @@ erDiagram
 
 | Module | Method | Endpoint | Access Level | Description |
 |---|---|---|:---:|---|
-| **Auth** | `POST` | `/users/login` | Public | Authenticate operator, returns JWT token & user profile |
-| **Auth** | `POST` | `/users/register` | Public | Operator self-registration (if permitted) |
-| **Auth** | `POST` | `/users/reset-password` | Public | Reset password with name and user ID verification |
-| **Users** | `GET` | `/users/get-users` | `admin` | Retrieve all staff accounts (with `/all` alias) |
-| **Users** | `POST` | `/users/admin-create` | `admin` | Provision a new operator with role assignment |
-| **Users** | `PATCH` | `/users/toggle-status` | `admin` | Activate or suspend operator access (`{ userId, active }`) |
-| **Users** | `PATCH` | `/users/update-role` | `admin` | Promote or demote operator (`{ userId, role }`) |
-| **Users** | `DELETE` | `/users/delete/:userId` | `admin` | Permanently delete operator account |
+| **Auth** | `POST` | `/users/login` | Public | Authenticate operator, returns Jose JWT & user profile |
+| **Auth** | `POST` | `/users/register` | Public | Operator self-registration |
+| **Auth** | `POST` | `/users/reset-password` | Public | Credential reset with verification |
+| **Users** | `GET` | `/users/get-users` | `admin` | Retrieve all staff accounts |
+| **Users** | `POST` | `/users/admin-create` | `admin` | Provision a new operator with role |
+| **Users** | `PATCH` | `/users/toggle-status` | `admin` | Suspend or reactivate staff account |
+| **Users** | `PATCH` | `/users/update-role` | `admin` | Promote or demote operator (`cashier` / `manager` / `admin`) |
+| **Users** | `DELETE` | `/users/delete/:userId` | `admin` | Delete operator account |
 | **Catalog** | `GET` | `/items/get-item` | Public | Fetch product catalog with live stock counts |
 | **Catalog** | `POST` | `/items/add-item` | Authenticated | Create a new inventory record |
 | **Catalog** | `PUT` | `/items/edit-item` | Authenticated | Update product prices, stock, or reorder threshold |
-| **Catalog** | `POST` | `/items/delete-item` | Authenticated | Remove product item from database (`{ itemId }`) |
+| **Catalog** | `POST` | `/items/delete-item` | Authenticated | Soft-delete inventory item |
 | **Billing** | `GET` | `/bill/get-bill` | Authenticated | Retrieve customer invoices and transaction records |
-| **Billing** | `POST` | `/bill/add-bill` | Authenticated | Complete checkout, record invoice & decrement inventory |
-| **Billing** | `PUT` | `/bill/edit-bill` | Authenticated | Edit customer information or payment status |
-| **Billing** | `DELETE` | `/bill/delete-bill/:id` | Authenticated | Delete invoice record |
-| **Dealers** | `GET` | `/dealers/get-dealers` | Authenticated | List all wholesale supplier profiles |
-| **Dealers** | `POST` | `/dealers/add-dealer` | Authenticated | Register a new wholesale supplier |
-| **Dealers** | `PUT` | `/dealers/edit-dealer` | Authenticated | Update supplier contact information |
-| **Dealers** | `POST` | `/dealers/delete-dealer` | Authenticated | Remove supplier record |
+| **Billing** | `POST` | `/bill/add-bill` | Authenticated | Complete checkout with atomic stock decrement |
+| **Billing** | `POST` | `/bill/void-bill/:id` | Manager/Admin | Void transaction & restore stock |
+| **Dealers** | `GET` | `/dealers/get-dealers` | Authenticated | List all wholesale suppliers |
 | **Charges** | `GET` | `/charges/get-charges` | Authenticated | Retrieve store operating expenses |
-| **Charges** | `POST` | `/charges/add-charge` | Authenticated | Record an expense line |
-| **Charges** | `PUT` | `/charges/edit-charge` | Authenticated | Update expense details |
-| **Charges** | `POST` | `/charges/delete-charge` | Authenticated | Delete expense record |
 
 ---
 
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-- **Node.js**: `v18.x` or later
+- **Node.js**: `v18.x` or `v20.x`
 - **npm**: `v9.x` or later
-- **MongoDB**: Local MongoDB instance or MongoDB Atlas cluster
+- **MongoDB**: MongoDB Atlas URI or local replica set
 
-### 2. Environment Configuration
-Copy the provided `.env.example` templates:
+### 2. Quick Setup & Installation
+
+From the monorepo root:
 
 ```bash
-# Backend Environment
+# 1. Install all dependencies across root, client, and server
+npm run install:all
+
+# 2. Configure environment files
 cp server/.env.example server/.env
-
-# Frontend Environment
 cp client/.env.example client/.env
-```
 
-Ensure `server/.env` includes your MongoDB connection string and a secure JWT secret:
-```env
-PORT=8080
-MONGOS_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/pos-mern?retryWrites=true&w=majority
-JWT_SECRET=your-secure-jwt-secret-key
-JWT_EXPIRES_IN=8h
-```
-
-### 3. Dependency Installation
-```bash
-# Install root orchestration tools
-npm install
-
-# Install server packages
-cd server && npm install && cd ..
-
-# Install client packages
-cd client && npm install && cd ..
-```
-
-### 4. Database Seeding
-Initialize the master administrator and sample cashier account:
-```bash
-cd server
+# 3. Seed initial products, store settings, and default admin user
 npm run seed
-cd ..
 ```
 
-Default credentials:
-- **Admin**: User ID `admin` · Password `test123`
-- **Cashier**: User ID `1001` · Password `test123`
+### 3. Launch Full-Stack Development
 
-### 5. Launch Full Stack Development
 ```bash
 npm run dev
 ```
 
 - **Frontend Client**: `http://localhost:3000`
 - **Backend API**: `http://localhost:8080`
+- **Health Check**: `http://localhost:8080/health`
 
----
-
-## 🤝 Contributing
-
-Contributions must adhere to the layered architecture guidelines, conventional commit syntax, and verification requirements. Please read [`CONTRIBUTING.md`](file:///d:/mern-pos/CONTRIBUTING.md) before submitting pull requests.
+Default credentials:
+- **Admin**: User ID `admin` · Password `test123`
+- **Cashier**: User ID `1001` · Password `test123`
 
 ---
 

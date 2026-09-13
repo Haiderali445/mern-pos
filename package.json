@@ -1,0 +1,14 @@
+{
+  "name": "hardware-point-pos",
+  "version": "2.5.0",
+  "private": true,
+  "description": "Hardware Point POS — Enterprise MERN Retail ERP with Offline-First IndexedDB",
+  "scripts": {
+    "start": "npm run start --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "build:client": "npm run build --prefix client",
+    "seed": "npm run seed --prefix server"
+  }
+}
