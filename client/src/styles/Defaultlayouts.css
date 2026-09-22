@@ -112,6 +112,42 @@ body {
   color: var(--pos-primary) !important;
 }
 
+/* Submenu Header and Nested Items Styling */
+.app-sider .ant-menu-submenu-title {
+  margin: 4px 10px;
+  width: auto;
+  border-radius: 8px;
+  height: 44px;
+  line-height: 44px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #d1e4d7 !important;
+  transition: all 0.15s ease;
+}
+
+.app-sider .ant-menu-submenu-title:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #ffffff !important;
+}
+
+.app-sider .ant-menu-submenu-open > .ant-menu-submenu-title {
+  color: #ffffff !important;
+}
+
+.app-sider .ant-menu-sub {
+  background: rgba(0, 0, 0, 0.15) !important;
+  border-radius: 8px;
+  margin: 2px 8px;
+  padding: 4px 0 !important;
+}
+
+.app-sider .ant-menu-sub .ant-menu-item {
+  height: 38px;
+  line-height: 38px;
+  font-size: 13px;
+  margin: 2px 6px;
+}
+
 .sider-bottom {
   position: absolute;
   bottom: 16px;

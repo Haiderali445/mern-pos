@@ -5,6 +5,7 @@ import {
   dealerService,
   chargeService,
   userService,
+  accountService,
 } from "../services";
 
 export const queryKeys = {
@@ -13,6 +14,7 @@ export const queryKeys = {
   dealers: ["dealers"],
   charges: ["charges"],
   users: ["users"],
+  accounts: ["accounts"],
   stockAnalytics: ["stockAnalytics"],
 };
 
@@ -225,4 +227,49 @@ export function useUserMutations() {
   });
 
   return { createUser, toggleStatus, updateRole, deleteUser };
+}
+
+// ==========================================
+// Account & Khata Queries & Mutations
+// ==========================================
+export function useAccounts({ accountType = "Customer" } = {}) {
+  return useQuery({
+    queryKey: [...queryKeys.accounts, accountType],
+    queryFn: () => accountService.getAccounts({ accountType }),
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
+export function useAccountLedger(accountId) {
+  return useQuery({
+    queryKey: [...queryKeys.accounts, "ledger", accountId],
+    queryFn: () => accountService.getAccountLedger(accountId),
+    enabled: Boolean(accountId),
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useAccountMutations() {
+  const queryClient = useQueryClient();
+
+  const createAccount = useMutation({
+    mutationFn: (payload) => accountService.createAccount(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts });
+    },
+  });
+
+  const recordPayment = useMutation({
+    mutationFn: ({ accountId, ...payload }) => accountService.recordPayment(accountId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts });
+      if (variables.accountId) {
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.accounts, "ledger", variables.accountId],
+        });
+      }
+    },
+  });
+
+  return { createAccount, recordPayment };
 }

@@ -16,11 +16,13 @@ import {
   BarChartOutlined,
   DollarOutlined,
   FallOutlined,
+  InboxOutlined,
   ReloadOutlined,
   RiseOutlined,
   ShoppingOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -49,6 +51,7 @@ const { Title, Text } = Typography;
 const FINANCIAL_COLORS = ["#0f766e", "#2563eb", "#f59e0b", "#dc2626"];
 
 export default function StockPage() {
+  const navigate = useNavigate();
   const { data: products = [], isLoading: pLoading, isError: pError, refetch: pRefetch } = useProducts();
   const { data: bills = [], isLoading: bLoading, isError: bError, refetch: bRefetch } = useBills();
   const { data: charges = [], isLoading: cLoading, isError: cError, refetch: cRefetch } = useCharges();
@@ -177,9 +180,19 @@ export default function StockPage() {
               Stock & Sales Analytics
             </Title>
           </div>
-          <Button icon={<ReloadOutlined />} onClick={handleRefetchAll} loading={isLoading}>
-            Recalculate
-          </Button>
+          <Space>
+            <Button
+              type="primary"
+              icon={<InboxOutlined />}
+              style={{ backgroundColor: "#183c35", borderColor: "#183c35" }}
+              onClick={() => navigate("/purchase-orders")}
+            >
+              Purchase Orders & GRN
+            </Button>
+            <Button icon={<ReloadOutlined />} onClick={handleRefetchAll} loading={isLoading}>
+              Recalculate
+            </Button>
+          </Space>
         </div>
 
         {isError && (

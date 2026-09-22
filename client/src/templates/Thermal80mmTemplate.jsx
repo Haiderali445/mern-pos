@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 
 const Thermal80mmTemplate = React.forwardRef(function Thermal80mmTemplate(
   { bill = {}, tenant = {} },
@@ -10,10 +10,13 @@ const Thermal80mmTemplate = React.forwardRef(function Thermal80mmTemplate(
   const currency = tenant.currency || "PKR";
 
   const subtotal = Number(bill.subtotal ?? bill.totalAmount ?? 0);
+  const totalDiscount = Number(bill.totalDiscount || bill.discount || 0);
   const taxAmount = Number(bill.taxAmount ?? 0);
+  const fare = Number(bill.fare || 0);
   const totalAmount = Number(bill.totalAmount ?? 0);
   const paidAmount = Number(bill.paidAmount ?? 0);
   const balanceDue = Math.max(0, totalAmount - paidAmount);
+  const change = Math.max(0, paidAmount - totalAmount);
   const cartItems = bill.cartItems || [];
 
   const fmt = (n) => `${currency} ${Number(n).toFixed(2)}`;
@@ -114,19 +117,29 @@ const Thermal80mmTemplate = React.forwardRef(function Thermal80mmTemplate(
       </div>
 
       <div style={{ borderTop: "1px dashed #888", paddingTop: 8, textAlign: "right", fontSize: 12 }}>
-        {taxAmount > 0 && (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Subtotal:</span>
-              <span>{fmt(subtotal)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Tax:</span>
-              <span>{fmt(taxAmount)}</span>
-            </div>
-          </>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span>Subtotal:</span>
+          <span>{fmt(subtotal)}</span>
+        </div>
+        {totalDiscount > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#2d8a55" }}>
+            <span>Discount (-):</span>
+            <span>-{fmt(totalDiscount)}</span>
+          </div>
         )}
-        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 13 }}>
+        {taxAmount > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Tax / GST:</span>
+            <span>+{fmt(taxAmount)}</span>
+          </div>
+        )}
+        {fare > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Delivery / Fare:</span>
+            <span>+{fmt(fare)}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 13, margin: "4px 0" }}>
           <span>TOTAL:</span>
           <span>{fmt(totalAmount)}</span>
         </div>
@@ -134,6 +147,12 @@ const Thermal80mmTemplate = React.forwardRef(function Thermal80mmTemplate(
           <span>Paid:</span>
           <span>{fmt(paidAmount)}</span>
         </div>
+        {change > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#2d8a55" }}>
+            <span>Change:</span>
+            <span>{fmt(change)}</span>
+          </div>
+        )}
         {balanceDue > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between", color: "#cf1322", fontWeight: 700 }}>
             <span>Balance Due:</span>

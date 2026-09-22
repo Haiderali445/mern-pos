@@ -11,6 +11,8 @@ import Billspage from "./pages/Billspage";
 import Charges from "./pages/Charges";
 import Dealers from "./pages/Dealerspage";
 import StockPage from "./pages/Stockpage";
+import CustomerLedger from "./pages/CustomerLedger";
+import PurchaseOrderPage from "./pages/PurchaseOrderPage";
 import UserManagement from "./pages/UserManagement";
 import TenantSettings from "./pages/TenantSettings";
 import PrivateRoute from "./components/PrivateRoute";
@@ -53,12 +55,16 @@ function App() {
           <Route path="/Items" element={<ItemPage />} />
           <Route path="/cart" element={<Cartpage />} />
           <Route path="/bills" element={<Billspage />} />
+          <Route path="/customers" element={<CustomerLedger />} />
+          <Route path="/customer-ledger" element={<CustomerLedger />} />
           <Route path="/ChangePasswordForm" element={<ChangePasswordForm />} />
           <Route path="/change-password" element={<ChangePasswordForm />} />
 
           {/* Manager & Admin Controlled Routes */}
           <Route element={<PrivateRoute roles={["admin", "manager"]} />}>
             <Route path="/stock" element={<StockPage />} />
+            <Route path="/purchase-orders" element={<PurchaseOrderPage />} />
+            <Route path="/purchases" element={<PurchaseOrderPage />} />
             <Route path="/dealers" element={<Dealers />} />
             <Route path="/charges" element={<Charges />} />
           </Route>

@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Divider, Tag } from "antd";
 
 const StandardA4Template = React.forwardRef(function StandardA4Template(
@@ -11,10 +11,13 @@ const StandardA4Template = React.forwardRef(function StandardA4Template(
   const currency = tenant.currency || "PKR";
 
   const subtotal = Number(bill.subtotal ?? bill.totalAmount ?? 0);
+  const totalDiscount = Number(bill.totalDiscount || bill.discount || 0);
   const taxAmount = Number(bill.taxAmount ?? 0);
+  const fare = Number(bill.fare || 0);
   const totalAmount = Number(bill.totalAmount ?? 0);
   const paidAmount = Number(bill.paidAmount ?? 0);
   const balanceDue = Math.max(0, totalAmount - paidAmount);
+  const change = Math.max(0, paidAmount - totalAmount);
   const isPaid = paidAmount >= totalAmount;
   const cartItems = bill.cartItems || [];
 
@@ -119,17 +122,27 @@ const StandardA4Template = React.forwardRef(function StandardA4Template(
       {/* Financial Summary */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <div style={{ width: 280 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+            <span style={{ color: "#666" }}>Subtotal</span>
+            <span>{fmt(subtotal)}</span>
+          </div>
+          {totalDiscount > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, color: "#2d8a55" }}>
+              <span>Discount (-)</span>
+              <span>-{fmt(totalDiscount)}</span>
+            </div>
+          )}
           {taxAmount > 0 && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}>
-                <span style={{ color: "#666" }}>Subtotal</span>
-                <span>{fmt(subtotal)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}>
-                <span style={{ color: "#666" }}>Tax</span>
-                <span>{fmt(taxAmount)}</span>
-              </div>
-            </>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+              <span style={{ color: "#666" }}>Tax / GST</span>
+              <span>+{fmt(taxAmount)}</span>
+            </div>
+          )}
+          {fare > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+              <span style={{ color: "#666" }}>Transport / Fare</span>
+              <span>+{fmt(fare)}</span>
+            </div>
           )}
           <div
             style={{
@@ -141,23 +154,29 @@ const StandardA4Template = React.forwardRef(function StandardA4Template(
               fontWeight: 700,
               fontSize: 15,
               borderRadius: 6,
-              marginTop: 4,
+              marginTop: 6,
               marginBottom: 8,
             }}
           >
             <span>Grand Total</span>
             <span>{fmt(totalAmount)}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
             <span style={{ color: "#666" }}>Amount Received</span>
             <span style={{ color: "#2d8a55", fontWeight: 600 }}>{fmt(paidAmount)}</span>
           </div>
+          {change > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, color: "#2d8a55" }}>
+              <span>Change Returned</span>
+              <span>{fmt(change)}</span>
+            </div>
+          )}
           {balanceDue > 0 && (
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                padding: "6px 0",
+                padding: "4px 0",
                 fontSize: 13,
                 fontWeight: 700,
                 color: "#cf1322",

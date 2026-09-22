@@ -13,6 +13,7 @@ import {
   Typography,
 } from "antd";
 import {
+  AuditOutlined,
   BarChartOutlined,
   CarryOutOutlined,
   CloudSyncOutlined,
@@ -20,6 +21,7 @@ import {
   DisconnectOutlined,
   DollarOutlined,
   FileTextOutlined,
+  InboxOutlined,
   KeyOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -30,6 +32,7 @@ import {
   SyncOutlined,
   TeamOutlined,
   UserOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import { useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -65,70 +68,81 @@ const DefaultLayouts = ({ children }) => {
     [cartItems]
   );
 
-  // Group Label Helper
-  const renderGroupLabel = (title) => {
-    if (collapsed) return "—";
-    return (
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 800,
-          letterSpacing: "0.08em",
-          color: "#d1e4d7",
-          textShadow: "0 1px 2px rgba(0,0,0,0.3)",
-          textTransform: "uppercase",
-        }}
-      >
-        {title}
-      </span>
-    );
-  };
+  // Open Sub-menus state
+  const [openKeys, setOpenKeys] = useState(() => {
+    const p = (location.pathname || "").toLowerCase();
+    const keys = [];
+    if (["/customers", "/purchase-orders", "/dealers", "/charges"].some((r) => p.startsWith(r))) {
+      keys.push("accounts-sub");
+    }
+    if (["/users", "/settings", "/tenantsettings"].some((r) => p.startsWith(r))) {
+      keys.push("admin-sub");
+    }
+    return keys;
+  });
 
-  // Structured 3-Category Sidebar Navigation
-  const menuItems = useMemo(() => {
-    const categories = [];
-
-    // Category 1: Sales & Terminal
-    categories.push({
-      key: "group-sales",
-      label: renderGroupLabel("Sales & Terminal"),
-      type: "group",
-      children: [
-        { key: "/", icon: <ShoppingCartOutlined />, label: "Point of Sale" },
-        { key: "/bills", icon: <FileTextOutlined />, label: "Invoices & Receipts" },
-        { key: "/items", icon: <CarryOutOutlined />, label: "Inventory Catalog" },
-      ],
+  useEffect(() => {
+    const p = (location.pathname || "").toLowerCase();
+    setOpenKeys((prev) => {
+      const next = [...prev];
+      if (["/customers", "/purchase-orders", "/dealers", "/charges"].some((r) => p.startsWith(r))) {
+        if (!next.includes("accounts-sub")) next.push("accounts-sub");
+      }
+      if (["/users", "/settings", "/tenantsettings"].some((r) => p.startsWith(r))) {
+        if (!next.includes("admin-sub")) next.push("admin-sub");
+      }
+      return next;
     });
+  }, [location.pathname]);
 
-    // Category 2: Operations & Analytics
+  // Clean, concise sidebar menu structure with consolidated Accounts dropdown
+  const menuItems = useMemo(() => {
+    const items = [
+      { key: "/", icon: <ShoppingCartOutlined />, label: "POS Terminal" },
+      { key: "/bills", icon: <FileTextOutlined />, label: "Invoices" },
+      { key: "/items", icon: <CarryOutOutlined />, label: "Inventory" },
+    ];
+
+    // Consolidated Accounts Sub-Menu
+    const accountChildren = [
+      { key: "/customers", icon: <AuditOutlined />, label: "Khata (Customers)" },
+    ];
+
     if (isManagerOrAdmin) {
-      categories.push({
-        key: "group-operations",
-        label: renderGroupLabel("Operations & Analytics"),
-        type: "group",
-        children: [
-          { key: "/stock", icon: <DashboardOutlined />, label: "Stock Analytics" },
-          { key: "/dealers", icon: <TeamOutlined />, label: "Dealers & Vendors" },
-          { key: "/charges", icon: <DollarOutlined />, label: "Store Expenses" },
-        ],
-      });
+      accountChildren.push(
+        { key: "/purchase-orders", icon: <InboxOutlined />, label: "Purchases & GRN" },
+        { key: "/dealers", icon: <TeamOutlined />, label: "Suppliers" },
+        { key: "/charges", icon: <DollarOutlined />, label: "Expenses" }
+      );
     }
 
-    // Category 3: Administration
+    items.push({
+      key: "accounts-sub",
+      icon: <WalletOutlined />,
+      label: "Accounts",
+      children: accountChildren,
+    });
+
+    // Operations & Analytics
+    if (isManagerOrAdmin) {
+      items.push({ key: "/stock", icon: <DashboardOutlined />, label: "Analytics" });
+    }
+
+    // Consolidated Administration Sub-Menu
     if (isAdmin) {
-      categories.push({
-        key: "group-admin",
-        label: renderGroupLabel("Administration"),
-        type: "group",
+      items.push({
+        key: "admin-sub",
+        icon: <SettingOutlined />,
+        label: "Administration",
         children: [
-          { key: "/users", icon: <UserOutlined style={{ color: "#f2c14e" }} />, label: "User Management" },
+          { key: "/users", icon: <UserOutlined style={{ color: "#f2c14e" }} />, label: "Users" },
           { key: "/settings", icon: <SettingOutlined style={{ color: "#52c41a" }} />, label: "Store Settings" },
         ],
       });
     }
 
-    return categories;
-  }, [collapsed, isAdmin, isManagerOrAdmin]);
+    return items;
+  }, [isAdmin, isManagerOrAdmin]);
 
   const profileMenuItems = useMemo(() => {
     const items = [
@@ -202,31 +216,20 @@ const DefaultLayouts = ({ children }) => {
   };
 
   const getPageTitle = (path) => {
-    switch (path.toLowerCase()) {
-      case "/":
-        return "Point of Sale";
-      case "/bills":
-        return "Invoices & Receipts";
-      case "/items":
-        return "Inventory Catalog";
-      case "/stock":
-        return "Stock Analytics";
-      case "/dealers":
-        return "Dealers & Vendors";
-      case "/charges":
-        return "Operational Expenses";
-      case "/users":
-        return "User Management";
-      case "/settings":
-      case "/tenantsettings":
-        return "Store Settings";
-      case "/cart":
-        return "Review Checkout";
-      case "/changepasswordform":
-        return "Security Settings";
-      default:
-        return "POS Terminal";
-    }
+    const p = (path || "").toLowerCase();
+    if (p === "/") return "Point of Sale";
+    if (p.startsWith("/bills")) return "Invoices";
+    if (p.startsWith("/items")) return "Inventory Catalog";
+    if (p.startsWith("/stock")) return "Stock Analytics";
+    if (p.startsWith("/customers")) return "Customer Khata Ledger";
+    if (p.startsWith("/purchase-orders")) return "Purchases & GRN Receiving";
+    if (p.startsWith("/dealers")) return "Suppliers Directory";
+    if (p.startsWith("/charges")) return "Store Expenses";
+    if (p.startsWith("/users")) return "User Management";
+    if (p.startsWith("/settings") || p.startsWith("/tenantsettings")) return "Store Settings";
+    if (p.startsWith("/cart")) return "Review Checkout";
+    if (p.startsWith("/changepasswordform")) return "Security Settings";
+    return "POS Terminal";
   };
 
   const handleMenuClick = (key) => {
@@ -314,6 +317,8 @@ const DefaultLayouts = ({ children }) => {
 
         <Menu
           mode="inline"
+          openKeys={collapsed ? [] : openKeys}
+          onOpenChange={setOpenKeys}
           selectedKeys={[
             location.pathname.toLowerCase() === "/items" ? "/items" : location.pathname,
           ]}

@@ -13,12 +13,15 @@ import {
   InputNumber,
   Modal,
   Radio,
+  Select,
   Skeleton,
   Tag,
   Tooltip,
+  Typography,
 } from "antd";
 import {
   BarcodeOutlined,
+  CarOutlined,
   CheckCircleOutlined,
   ClearOutlined,
   CreditCardOutlined,
@@ -26,17 +29,19 @@ import {
   DollarOutlined,
   KeyOutlined,
   MinusOutlined,
+  PercentageOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
   ShoppingCartOutlined,
   ThunderboltOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import DefaultLayout from "../components/Defaultlayouts";
 import useBarcodeScanner from "../hooks/useBarcodeScanner";
 import usePosShortcuts from "../hooks/usePosShortcuts";
-import { useCheckoutMutation, useProducts } from "../hooks/usePosQueries";
+import { useCheckoutMutation, useProducts, useAccounts } from "../hooks/usePosQueries";
 import { useTenantSettings } from "../hooks/useTenantSettings";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import {
@@ -46,14 +51,31 @@ import {
   filterCatalogProducts,
 } from "../handlers/posHandlers";
 import {
+  calculateCartSubtotal,
   calculateCartTotal,
+  calculateTaxAmount,
+  calculateChangeDue,
+  calculateDueDebt,
+  formatCurrency,
   handleCheckoutSubmission,
 } from "../handlers/cartHandlers";
 import { notifyInfo } from "../utils/errorHandler";
 import "../styles/Pos.css";
 
-function CartContent({ cartItems, dispatch, onOpenCheckout }) {
-  const subtotal = useMemo(() => calculateCartTotal(cartItems), [cartItems]);
+const { Text } = Typography;
+
+function CartContent({ cartItems, dispatch, onOpenCheckout, tenantSettings }) {
+  const taxRate = Number(tenantSettings?.taxRate || 0);
+  const taxStrategy = tenantSettings?.taxStrategy || "zero";
+  const subtotal = useMemo(() => calculateCartSubtotal(cartItems), [cartItems]);
+  const taxAmount = useMemo(
+    () => calculateTaxAmount(subtotal, taxRate, taxStrategy),
+    [subtotal, taxRate, taxStrategy]
+  );
+  const netTotal = useMemo(
+    () => calculateCartTotal(cartItems, { taxRate, taxStrategy }),
+    [cartItems, taxRate, taxStrategy]
+  );
 
   return (
     <div className="pos-cart-inner">
@@ -142,13 +164,13 @@ function CartContent({ cartItems, dispatch, onOpenCheckout }) {
           <strong>PKR {subtotal.toFixed(2)}</strong>
         </div>
         <div>
-          <span>Tax / GST</span>
-          <strong>PKR 0.00</strong>
+          <span>{taxRate > 0 ? `Tax / GST (${taxRate}%)` : "Tax / GST"}</span>
+          <strong>PKR {taxAmount.toFixed(2)}</strong>
         </div>
         <div className="pos-cart-total">
           <span>Net Total</span>
           <strong style={{ color: "#183c35", fontSize: 20 }}>
-            PKR {subtotal.toFixed(2)}
+            PKR {netTotal.toFixed(2)}
           </strong>
         </div>
       </div>
@@ -177,6 +199,9 @@ export default function Homepage() {
   const { cartItems } = useSelector((state) => state.rootReducer);
   const { tenantSettings } = useTenantSettings();
   const { data: products = [], isLoading, isError, refetch } = useProducts();
+  const { data: customerAccounts = [], isLoading: loadingAccounts } = useAccounts({
+    accountType: "Customer",
+  });
   const checkoutMutation = useCheckoutMutation();
 
   const [search, setSearch] = useState("");
@@ -190,9 +215,61 @@ export default function Homepage() {
   const searchRef = useRef(null);
   const [form] = Form.useForm();
 
-  const total = useMemo(() => calculateCartTotal(cartItems), [cartItems]);
-  const paidAmount = Form.useWatch("paidAmount", form) || 0;
-  const paymentMethod = Form.useWatch("paymentMethod", form);
+  const taxRate = Number(tenantSettings?.taxRate || 0);
+  const taxStrategy = tenantSettings?.taxStrategy || "zero";
+
+  const watchedFare = Form.useWatch("fare", form) || 0;
+  const watchedDiscount = Form.useWatch("totalDiscount", form) || 0;
+  const watchedAccountId = Form.useWatch("accountId", form);
+  const paidAmount = Form.useWatch("paidAmount", form);
+  const paymentMethod = Form.useWatch("paymentMethod", form) || "cash";
+
+  const selectedCustomer = useMemo(
+    () => customerAccounts.find((c) => String(c._id) === String(watchedAccountId)),
+    [customerAccounts, watchedAccountId]
+  );
+
+  const subtotal = useMemo(() => calculateCartSubtotal(cartItems), [cartItems]);
+  const total = useMemo(
+    () =>
+      calculateCartTotal(cartItems, {
+        totalDiscount: watchedDiscount,
+        fare: watchedFare,
+        taxRate,
+        taxStrategy,
+      }),
+    [cartItems, watchedDiscount, watchedFare, taxRate, taxStrategy]
+  );
+
+  const discountedSubtotal = Math.max(0, subtotal - Number(watchedDiscount || 0));
+  const taxAmount = useMemo(
+    () => calculateTaxAmount(discountedSubtotal, taxRate, taxStrategy),
+    [discountedSubtotal, taxRate, taxStrategy]
+  );
+
+  const changeDue = useMemo(
+    () => calculateChangeDue(paidAmount, total),
+    [paidAmount, total]
+  );
+  const dueDebt = useMemo(
+    () => calculateDueDebt(paidAmount, total),
+    [paidAmount, total]
+  );
+
+  const handleCustomerSelect = (accId) => {
+    if (!accId) {
+      form.setFieldsValue({ accountId: null });
+      return;
+    }
+    const customer = customerAccounts.find((c) => String(c._id) === String(accId));
+    if (customer) {
+      form.setFieldsValue({
+        accountId: customer._id,
+        costumerName: customer.name || "",
+        costumerNumber: customer.phone || "",
+      });
+    }
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 150);
@@ -214,8 +291,14 @@ export default function Homepage() {
       notifyInfo("Please add items to the cart before checkout.");
       return;
     }
+    const initialTax = calculateTaxAmount(subtotal, taxRate, taxStrategy);
+    const initialTotal = Number((subtotal + initialTax).toFixed(2));
+
     form.setFieldsValue({
-      paidAmount: total,
+      fare: 0,
+      totalDiscount: 0,
+      accountId: null,
+      paidAmount: initialTotal,
       paymentMethod: "cash",
       costumerName: "",
       costumerNumber: "",
@@ -256,7 +339,13 @@ export default function Homepage() {
       checkoutMutation,
       values,
       cartItems,
-      total,
+      calculated: {
+        subtotal,
+        totalDiscount: Number(values.totalDiscount || 0),
+        fare: Number(values.fare || 0),
+        taxAmount,
+        total,
+      },
       onSuccess: (result) => {
         dispatch({ type: "CLEAR_CART" });
         setCheckoutModalOpen(false);
@@ -429,6 +518,7 @@ export default function Homepage() {
             cartItems={cartItems}
             dispatch={dispatch}
             onOpenCheckout={openCheckout}
+            tenantSettings={tenantSettings}
           />
         </aside>
 
@@ -466,6 +556,7 @@ export default function Homepage() {
             cartItems={cartItems}
             dispatch={dispatch}
             onOpenCheckout={openCheckout}
+            tenantSettings={tenantSettings}
           />
         </Drawer>
 
@@ -497,26 +588,81 @@ export default function Homepage() {
             form={form}
             layout="vertical"
             onFinish={handleCheckoutSubmit}
-            initialValues={{ paymentMethod: "cash", paidAmount: total }}
+            initialValues={{ paymentMethod: "cash", paidAmount: total, fare: 0, totalDiscount: 0 }}
           >
             <div className="checkout-total-card">
               <span>Total Payable Amount</span>
               <strong>PKR {total.toFixed(2)}</strong>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 12,
+                  marginTop: 8,
+                  paddingTop: 8,
+                  borderTop: "1px solid #d5e5db",
+                  color: "#64736b",
+                }}
+              >
+                <span>Subtotal: PKR {subtotal.toFixed(2)}</span>
+                {watchedDiscount > 0 && <span>Disc: -PKR {Number(watchedDiscount).toFixed(2)}</span>}
+                {taxAmount > 0 && <span>Tax ({taxRate}%): +PKR {taxAmount.toFixed(2)}</span>}
+                {watchedFare > 0 && <span>Fare: +PKR {Number(watchedFare).toFixed(2)}</span>}
+              </div>
             </div>
 
-            <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}>
-              <Radio.Group optionType="button" buttonStyle="solid" style={{ width: "100%", display: "flex" }}>
-                <Radio.Button value="cash" style={{ flex: 1, textAlign: "center" }}>
-                  <DollarOutlined /> Cash
-                </Radio.Button>
-                <Radio.Button value="card" style={{ flex: 1, textAlign: "center" }}>
-                  <CreditCardOutlined /> Card
-                </Radio.Button>
-                <Radio.Button value="borrow" style={{ flex: 1, textAlign: "center" }}>
-                  Credit / Borrow
-                </Radio.Button>
-              </Radio.Group>
+            {/* Customer Account / Khata Selector */}
+            <Form.Item label="Customer Account (Khata Tracking)" style={{ marginBottom: 12 }}>
+              <Form.Item name="accountId" noStyle>
+                <Select
+                  showSearch
+                  placeholder="Select registered customer or walk-in"
+                  loading={loadingAccounts}
+                  onChange={handleCustomerSelect}
+                  allowClear
+                  filterOption={(input, option) =>
+                    (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={[
+                    { value: "", label: "🚶 Walk-in Customer (Non-Account)" },
+                    ...customerAccounts.map((c) => ({
+                      value: c._id,
+                      label: `${c.name} (${c.accountCode || "CUST"}) - ${c.phone || "No Phone"}`,
+                    })),
+                  ]}
+                />
+              </Form.Item>
             </Form.Item>
+
+            {/* Selected Customer Khata Info Badge */}
+            {selectedCustomer && (
+              <div
+                style={{
+                  background: "#f6ffed",
+                  border: "1px solid #b7eb8f",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  marginBottom: 14,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <Text strong style={{ color: "#183c35" }}>
+                      <UserOutlined style={{ marginRight: 6 }} />
+                      {selectedCustomer.name}
+                    </Text>
+                    <span style={{ fontSize: 11, color: "#888", marginLeft: 8 }}>
+                      [{selectedCustomer.accountCode}]
+                    </span>
+                  </div>
+                  <Tag color={selectedCustomer.currentBalance > 0 ? "volcano" : "green"}>
+                    {selectedCustomer.currentBalance > 0
+                      ? `Receivable Debt: PKR ${selectedCustomer.currentBalance.toFixed(2)}`
+                      : "No Debt Outstanding"}
+                  </Tag>
+                </div>
+              </div>
+            )}
 
             <Row gutter={12}>
               <Col span={12}>
@@ -531,6 +677,45 @@ export default function Homepage() {
               </Col>
             </Row>
 
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item name="fare" label="Transport / Delivery Fare">
+                  <InputNumber
+                    min={0}
+                    precision={2}
+                    style={{ width: "100%" }}
+                    prefix={<CarOutlined style={{ color: "#888" }} />}
+                    placeholder="0.00"
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="totalDiscount" label="Bill Discount">
+                  <InputNumber
+                    min={0}
+                    precision={2}
+                    style={{ width: "100%" }}
+                    prefix={<PercentageOutlined style={{ color: "#888" }} />}
+                    placeholder="0.00"
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}>
+              <Radio.Group optionType="button" buttonStyle="solid" style={{ width: "100%", display: "flex" }}>
+                <Radio.Button value="cash" style={{ flex: 1, textAlign: "center" }}>
+                  <DollarOutlined /> Cash
+                </Radio.Button>
+                <Radio.Button value="card" style={{ flex: 1, textAlign: "center" }}>
+                  <CreditCardOutlined /> Card
+                </Radio.Button>
+                <Radio.Button value="borrow" style={{ flex: 1, textAlign: "center", fontWeight: 600 }}>
+                  Credit / Khata
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+
             <Form.Item
               name="paidAmount"
               label="Amount Received (Tendered)"
@@ -540,7 +725,7 @@ export default function Homepage() {
                   validator: (_, value) =>
                     paymentMethod === "borrow" || Number(value) >= total
                       ? Promise.resolve()
-                      : Promise.reject(new Error("Amount received must cover total amount")),
+                      : Promise.reject(new Error("Amount received must cover total amount, or switch to Credit / Khata")),
                 },
               ]}
             >
@@ -553,13 +738,29 @@ export default function Homepage() {
               />
             </Form.Item>
 
+            {/* Quick Tender Shortcuts */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              <Button size="small" onClick={() => form.setFieldValue("paidAmount", total)}>
+                Exact Amount
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  form.setFieldValue("paidAmount", 0);
+                  form.setFieldValue("paymentMethod", "borrow");
+                }}
+              >
+                Zero / Credit
+              </Button>
+            </div>
+
             <div className="checkout-change-row">
-              <span>Customer Change:</span>
+              <span>{paymentMethod === "borrow" && Number(paidAmount) < total ? "Khata Due (Debt):" : "Customer Change:"}</span>
               <Tag
                 color={Number(paidAmount) >= total ? "success" : "warning"}
                 style={{ fontSize: 14, padding: "4px 10px" }}
               >
-                PKR {Math.max(0, Number(paidAmount) - total).toFixed(2)}
+                PKR {Number(paidAmount) >= total ? changeDue.toFixed(2) : dueDebt.toFixed(2)}
               </Tag>
             </div>
           </Form>

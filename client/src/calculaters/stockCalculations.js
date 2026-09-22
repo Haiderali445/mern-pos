@@ -31,7 +31,16 @@ export function calculateFinancialMetrics(products = [], bills = [], charges = [
   safeBills.forEach((bill) => {
     if (Array.isArray(bill?.cartItems)) {
       bill.cartItems.forEach((item) => {
-        totalCogs += (Number(item?.purchasePrice) || 0) * (Number(item?.quantity) || 0);
+        const itemQty = Number(item?.quantity) || 0;
+        if (Array.isArray(item?.batchAllocations) && item.batchAllocations.length > 0) {
+          totalCogs += item.batchAllocations.reduce(
+            (acc, a) => acc + (Number(a.unitCost || 0) * Number(a.quantity || 0)),
+            0
+          );
+        } else {
+          const cost = Number(item?.unitCost !== undefined ? item.unitCost : item?.purchasePrice || 0);
+          totalCogs += cost * itemQty;
+        }
       });
     }
   });
@@ -114,4 +123,70 @@ export function getStockStatus(stock, reorderLevel = 5) {
 
 export function computeItemAssetValue(purchasePrice, stock) {
   return (Number(purchasePrice) || 0) * Math.max(0, Number(stock) || 0);
+}
+
+/**
+ * Pure simulation of FIFO batch consumption across batches.
+ * Does not mutate original batches array or batch objects.
+ * @param {Array} batches - Array of batch objects { _id, batchCode, availableQty, unitCost, createdAt }
+ * @param {number} requestedQty - Quantity needed
+ * @param {number} fallbackCost - Cost to use if batches are exhausted
+ * @returns {{ allocations: Array, totalCost: number, unitCost: number, remainingBatches: Array }}
+ */
+export function computeFIFOAllocations(batches = [], requestedQty = 0, fallbackCost = 0) {
+  const safeBatches = Array.isArray(batches)
+    ? batches.map((b) => ({
+        ...b,
+        availableQty: Number(b.availableQty !== undefined ? b.availableQty : b.qty || 0),
+      }))
+    : [];
+
+  const sorted = safeBatches.sort(
+    (a, b) => new Date(a.createdAt || a.receivedDate || 0) - new Date(b.createdAt || b.receivedDate || 0)
+  );
+
+  let remaining = Number(requestedQty) || 0;
+  let totalCost = 0;
+  const allocations = [];
+
+  for (const batch of sorted) {
+    if (remaining <= 0) break;
+    if (batch.availableQty > 0) {
+      const take = Math.min(remaining, batch.availableQty);
+      batch.availableQty = Number((batch.availableQty - take).toFixed(3));
+      remaining = Number((remaining - take).toFixed(3));
+      const cost = Number((take * Number(batch.unitCost || 0)).toFixed(2));
+      totalCost += cost;
+
+      allocations.push({
+        batchId: batch._id,
+        batchCode: batch.batchCode,
+        quantity: take,
+        unitCost: Number(batch.unitCost || 0),
+        totalCost: cost,
+      });
+    }
+  }
+
+  if (remaining > 0) {
+    const fallback = Number(fallbackCost || 0);
+    const cost = Number((remaining * fallback).toFixed(2));
+    totalCost += cost;
+    allocations.push({
+      batchId: null,
+      batchCode: "LEGACY-STOCK",
+      quantity: remaining,
+      unitCost: fallback,
+      totalCost: cost,
+    });
+  }
+
+  const effectiveUnitCost = requestedQty > 0 ? Number((totalCost / requestedQty).toFixed(2)) : 0;
+
+  return {
+    allocations,
+    totalCost: Number(totalCost.toFixed(2)),
+    unitCost: effectiveUnitCost,
+    remainingBatches: sorted,
+  };
 }

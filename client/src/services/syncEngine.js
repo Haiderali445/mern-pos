@@ -1,9 +1,10 @@
-﻿import apiClient from "../api/client";
+import apiClient from "../api/client";
 import posDb from "../db/posDatabase";
 
 /**
  * Background Sync Engine for Hardware Point POS
- * Automatically reconciles offline transactions when network connectivity is detected.
+ * Automatically reconciles offline transactions, customer Khata ledgers, and product inventory
+ * when network connectivity is restored.
  */
 class SyncEngine {
   constructor() {
@@ -18,6 +19,7 @@ class SyncEngine {
     window.addEventListener("online", () => {
       console.info("[SyncEngine] Network connectivity restored. Initiating auto-sync...");
       this.syncPendingBills();
+      this.refreshAllCaches();
     });
 
     window.addEventListener("offline", () => {
@@ -48,7 +50,8 @@ class SyncEngine {
   }
 
   /**
-   * Pushes all locally queued offline transactions to the remote server API.
+   * Pushes all locally queued offline transactions to the remote server API,
+   * including credit sales, delivery fares, and customer Khata references.
    * @param {Object} [options]
    * @param {boolean} [options.silent=false]
    * @returns {Promise<{ synced: number, failed: number }>}
@@ -72,18 +75,38 @@ class SyncEngine {
     for (const bill of pendingBills) {
       try {
         // Strip client-only offline markers before sending to MongoDB
-        const { id, _id, isOffline, syncStatus, retryCount, createdAt, ...remotePayload } = bill;
+        const {
+          id,
+          _id,
+          isOffline,
+          syncStatus,
+          retryCount,
+          createdAt,
+          syncedAt,
+          remoteId,
+          lastError,
+          ...remotePayload
+        } = bill;
 
-        const response = await apiClient.post("/bill/add-bill", remotePayload);
+        const cleanPayload = {
+          ...remotePayload,
+          invoiceType: remotePayload.invoiceType || "Sale",
+          accountId: remotePayload.accountId || null,
+          fare: Number(remotePayload.fare || 0),
+          totalDiscount: Number(remotePayload.totalDiscount || 0),
+          totalAmount: Number(remotePayload.totalAmount || 0),
+          paidAmount: Number(remotePayload.paidAmount || 0),
+        };
+
+        const response = await apiClient.post("/bill/add-bill", cleanPayload);
         await posDb.markBillSynced(bill.id, response.data);
         syncedCount++;
       } catch (error) {
         console.error(`[SyncEngine] Failed to sync offline invoice ${bill.id}:`, error);
         failedCount++;
-        // Increment retry count
         await posDb.offline_bills.update(bill.id, {
           retryCount: (bill.retryCount || 0) + 1,
-          lastError: error.message || "Network transmission failed",
+          lastError: error.response?.data?.error || error.message || "Network transmission failed",
         });
       }
     }
@@ -91,14 +114,17 @@ class SyncEngine {
     this.isSyncing = false;
     this.dispatchStatus({ action: "completed", synced: syncedCount, failed: failedCount });
 
-    // Refresh products catalog in background to synchronize exact server stock
+    // Refresh products catalog & customer accounts to reconcile exact server state
     if (syncedCount > 0) {
-      this.refreshServerCatalog();
+      await this.refreshAllCaches();
     }
 
     return { synced: syncedCount, failed: failedCount };
   }
 
+  /**
+   * Re-syncs product catalog & FIFO stock batches from server into local IndexedDB
+   */
   async refreshServerCatalog() {
     try {
       const res = await apiClient.get("/items/get-item");
@@ -106,8 +132,29 @@ class SyncEngine {
         await posDb.bulkUpsertProducts(res.data);
       }
     } catch (err) {
-      // Silently ignore catalog refresh failures
+      console.warn("[SyncEngine] Failed to refresh local catalog cache:", err.message);
     }
+  }
+
+  /**
+   * Re-syncs Customer Khata accounts directory and balances into local IndexedDB
+   */
+  async refreshServerAccounts() {
+    try {
+      const res = await apiClient.get("/accounts", { params: { type: "Customer" } });
+      if (Array.isArray(res.data)) {
+        await posDb.bulkUpsertAccounts(res.data);
+      }
+    } catch (err) {
+      console.warn("[SyncEngine] Failed to refresh local accounts cache:", err.message);
+    }
+  }
+
+  /**
+   * Re-aligns all local caches with server state
+   */
+  async refreshAllCaches() {
+    return Promise.allSettled([this.refreshServerCatalog(), this.refreshServerAccounts()]);
   }
 
   destroy() {

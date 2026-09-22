@@ -221,6 +221,37 @@ export default function ItemPage() {
       },
     },
     {
+      title: "FIFO Batches & Margin",
+      key: "batchesMargin",
+      render: (_, record) => {
+        const activeBatches = (record.stockBatches || []).filter(
+          (b) => Number(b.availableQty) > 0
+        );
+        const batchCount = activeBatches.length || (Number(record.stock) > 0 ? 1 : 0);
+        const cost = Number(record.purchasePrice || 0);
+        const sale = Number(record.salePrice || 0);
+        const profit = Math.max(0, sale - cost);
+        const marginPct = sale > 0 ? ((profit / sale) * 100).toFixed(0) : 0;
+
+        return (
+          <Space direction="vertical" size={3}>
+            <Tag color="purple" style={{ borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+              {batchCount} {batchCount === 1 ? "Active Batch" : "Active Batches"}
+            </Tag>
+            {profit > 0 ? (
+              <Tag color="green" style={{ borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                +{formatCurrency(profit)} ({marginPct}%)
+              </Tag>
+            ) : (
+              <Tag color="default" style={{ borderRadius: 4, fontSize: 11 }}>
+                Zero Margin
+              </Tag>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
       title: "Stock Value",
       key: "stockValue",
       render: (_, record) => (
@@ -426,6 +457,72 @@ export default function ItemPage() {
             loading={isLoading}
             pagination={{ pageSize: 10, showSizeChanger: true }}
             locale={{ emptyText: <Empty description="No products match your filters" /> }}
+            expandable={{
+              expandedRowRender: (record) => {
+                const batches = record.stockBatches || [];
+                if (batches.length === 0) {
+                  return (
+                    <div style={{ padding: "8px 16px", color: "#888", fontSize: 12 }}>
+                      No separate purchase batches recorded. Single-pool baseline stock active.
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ margin: "4px 0", backgroundColor: "#fbfcfb", padding: 12, borderRadius: 8, border: "1px solid #e8f0ec" }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, color: "#183c35" }}>
+                      Active & Depleted FIFO Stock Batches for {record.name}
+                    </div>
+                    <Table
+                      size="small"
+                      rowKey={(b, idx) => b.batchCode || idx}
+                      pagination={false}
+                      dataSource={batches}
+                      columns={[
+                        {
+                          title: "Batch Code",
+                          dataIndex: "batchCode",
+                          key: "batchCode",
+                          render: (c) => <Tag color="purple" style={{ fontFamily: "monospace" }}>{c}</Tag>,
+                        },
+                        {
+                          title: "Available Qty",
+                          dataIndex: "availableQty",
+                          key: "avail",
+                          render: (q) => <strong>{q} units</strong>,
+                        },
+                        {
+                          title: "Initial Qty",
+                          dataIndex: "qty",
+                          key: "qty",
+                          render: (q) => `${q || 0} units`,
+                        },
+                        {
+                          title: "Batch Unit Cost",
+                          dataIndex: "unitCost",
+                          key: "cost",
+                          render: (c) => formatCurrency(c),
+                        },
+                        {
+                          title: "Intake Date",
+                          dataIndex: "receivedDate",
+                          key: "recv",
+                          render: (d) => (d ? new Date(d).toLocaleDateString() : "-"),
+                        },
+                        {
+                          title: "FIFO Status",
+                          key: "status",
+                          render: (_, b) => (
+                            <Tag color={Number(b.availableQty) > 0 ? "success" : "default"}>
+                              {Number(b.availableQty) > 0 ? "Active in Queue" : "Fully Depleted"}
+                            </Tag>
+                          ),
+                        },
+                      ]}
+                    />
+                  </div>
+                );
+              },
+            }}
           />
         </Card>
 

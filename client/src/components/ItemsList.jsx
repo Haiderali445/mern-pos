@@ -23,6 +23,13 @@ const ItemsList = ({ item }) => {
     };
 
     const outOfStock = Number(item.stock || 0) < 1;
+    const cost = Number(item.purchasePrice || 0);
+    const price = Number(item.salePrice || item.price || 0);
+    const profit = Math.max(0, price - cost);
+    const marginPct = price > 0 ? ((profit / price) * 100).toFixed(0) : 0;
+    const activeBatchesCount =
+      (item.stockBatches || []).filter((b) => Number(b.availableQty) > 0).length ||
+      (Number(item.stock) > 0 ? 1 : 0);
 
     return (
         <Card
@@ -76,7 +83,39 @@ const ItemsList = ({ item }) => {
                 {item.name}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
+            {/* FIFO Batch & Margin Transparency */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                <span
+                    style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        backgroundColor: "#f9f0ff",
+                        color: "#722ed1",
+                        border: "1px solid #d3adf7",
+                        borderRadius: 4,
+                        padding: "1px 6px",
+                    }}
+                >
+                    {activeBatchesCount} {activeBatchesCount === 1 ? "FIFO Batch" : "FIFO Batches"}
+                </span>
+                {cost > 0 && profit > 0 && (
+                    <span
+                        style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            backgroundColor: "#f6ffed",
+                            color: "#389e0d",
+                            border: "1px solid #b7eb8f",
+                            borderRadius: 4,
+                            padding: "1px 6px",
+                        }}
+                    >
+                        +{marginPct}% Margin
+                    </span>
+                )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                 <div>
                     <span style={{ fontSize: 10, color: "#526e60", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Price</span>
                     <strong style={{ fontSize: 16, color: "#183c35", fontFamily: "'Space Grotesk', sans-serif" }}>

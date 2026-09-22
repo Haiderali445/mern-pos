@@ -29,7 +29,9 @@ import {
   ShopOutlined,
   TeamOutlined,
   UserOutlined,
+  InboxOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import DefaultLayout from "../components/Defaultlayouts";
 import { useDealerMutations, useDealers } from "../hooks/usePosQueries";
 import usePermission from "../hooks/usePermission";
@@ -37,6 +39,7 @@ import usePermission from "../hooks/usePermission";
 const { Title, Text } = Typography;
 
 export default function DealerPage() {
+  const navigate = useNavigate();
   const { can } = usePermission();
   const { data: dealersData = [], isLoading, isError, refetch } = useDealers();
   const { addDealer, editDealer, deleteDealer } = useDealerMutations();
@@ -224,6 +227,12 @@ export default function DealerPage() {
             </Title>
           </div>
           <Space>
+            <Button
+              icon={<InboxOutlined />}
+              onClick={() => navigate("/purchase-orders")}
+            >
+              Purchase Orders & GRN
+            </Button>
             <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isLoading}>
               Refresh
             </Button>
