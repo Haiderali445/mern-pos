@@ -105,7 +105,7 @@ const DefaultLayouts = ({ children }) => {
 
     // Consolidated Accounts Sub-Menu
     const accountChildren = [
-      { key: "/customers", icon: <AuditOutlined />, label: "Khata (Customers)" },
+      { key: "/customers", icon: <AuditOutlined />, label: "Khata" },
     ];
 
     if (isManagerOrAdmin) {
